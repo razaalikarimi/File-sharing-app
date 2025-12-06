@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
+  // Local ke liye change kar sakte ho, abhi host backend use kar rahe:
   baseURL: "https://file-sharing-app-b.onrender.com/api",
 });
 
