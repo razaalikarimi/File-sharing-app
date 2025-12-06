@@ -91,7 +91,7 @@ Copy code
 
 ```bash
 cd file-sharing-app-final/backend
-cp .env.example .env   # Windows users: rename .env.example ➝ .env manually
+ .env   
 npm install
 npm run dev
 Backend runs at → http://localhost:5000
