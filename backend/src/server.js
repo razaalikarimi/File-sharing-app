@@ -1,3 +1,4 @@
+// backend/src/server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -11,30 +12,13 @@ const app = express();
 // Connect DB
 connectDB();
 
-// Allowed origins (prod + local)
-const allowedOrigins = [
-  process.env.CLIENT_URL,      // https://file-sharing-app-wyiw.onrender.com
-  "http://localhost:5173",     // local dev
-].filter(Boolean);
+// ✅ Simple CORS: allow all origins (no cookies)
+app.use(cors());
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Postman etc.
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log("❌ CORS blocked origin:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
-
+// Parse JSON
 app.use(express.json());
 
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/files", fileRoutes);
 
@@ -46,5 +30,4 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log("✅ Allowed origins:", allowedOrigins);
 });
