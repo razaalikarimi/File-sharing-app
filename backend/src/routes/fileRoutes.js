@@ -1,3 +1,4 @@
+// backend/src/routes/fileRoutes.js
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
@@ -10,12 +11,15 @@ const User = require("../models/User");
 
 const router = express.Router();
 
+// ===== Multer config =====
 const uploadsDir = path.join(__dirname, "..", "..", "uploads");
 
+// Ensure uploads directory exists
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Allowed MIME types
 const allowedMimeTypes = [
   "image/jpeg",
   "image/png",
@@ -26,6 +30,7 @@ const allowedMimeTypes = [
   "application/msword",
 ];
 
+// File size limit: 10 MB
 const upload = multer({
   storage: multer.diskStorage({
     destination: function (req, file, cb) {
@@ -48,6 +53,7 @@ const upload = multer({
   },
 });
 
+// ===== Helper functions =====
 const isLinkValid = (link) => {
   if (!link) return false;
   if (link.expiresAt && link.expiresAt < new Date()) {
@@ -59,10 +65,19 @@ const isLinkValid = (link) => {
 const canAccessFile = (userId, file, token) => {
   if (!file) return false;
 
-  if (file.owner.equals(userId)) return true;
+  // Owner
+  if (userId && file.owner.equals(userId)) return true;
 
-  if (file.sharedWith.some((uid) => uid.equals(userId))) return true;
+  // sharedWith
+  if (
+    userId &&
+    file.sharedWith &&
+    file.sharedWith.some((uid) => uid.equals(userId))
+  ) {
+    return true;
+  }
 
+  // share link via token
   if (token) {
     const foundLink = file.shareLinks.find((l) => l.token === token);
     if (isLinkValid(foundLink)) return true;
@@ -71,6 +86,9 @@ const canAccessFile = (userId, file, token) => {
   return false;
 };
 
+// ===== Routes =====
+
+// POST /api/files/upload
 router.post("/upload", auth, upload.array("files", 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -110,6 +128,7 @@ router.post("/upload", auth, upload.array("files", 10), async (req, res) => {
   }
 });
 
+// GET /api/files/my
 router.get("/my", auth, async (req, res) => {
   try {
     const files = await File.find({ owner: req.user._id }).sort({
@@ -123,6 +142,7 @@ router.get("/my", auth, async (req, res) => {
   }
 });
 
+// GET /api/files/shared/with-me
 router.get("/shared/with-me", auth, async (req, res) => {
   try {
     const files = await File.find({ sharedWith: req.user._id })
@@ -136,6 +156,7 @@ router.get("/shared/with-me", auth, async (req, res) => {
   }
 });
 
+// GET /api/files/:id (metadata for owner/shared-with)
 router.get("/:id", auth, async (req, res) => {
   try {
     const file = await File.findById(req.params.id);
@@ -155,6 +176,7 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
+// POST /api/files/:fileId/share/users
 router.post("/:fileId/share/users", auth, async (req, res) => {
   try {
     const { emails } = req.body;
@@ -170,9 +192,7 @@ router.post("/:fileId/share/users", auth, async (req, res) => {
     }
 
     if (!file.owner.equals(req.user._id)) {
-      return res
-        .status(403)
-        .json({ message: "Only owner can share this file" });
+      return res.status(403).json({ message: "Only owner can share this file" });
     }
 
     const users = await User.find({ email: { $in: emails } });
@@ -198,6 +218,7 @@ router.post("/:fileId/share/users", auth, async (req, res) => {
   }
 });
 
+// POST /api/files/:fileId/share/link  (create shareable link)
 router.post("/:fileId/share/link", auth, async (req, res) => {
   try {
     const { expiresAt } = req.body;
@@ -225,6 +246,7 @@ router.post("/:fileId/share/link", auth, async (req, res) => {
     await file.save();
 
     const frontendUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    // 👇 yahan public route ka URL de rahe hain
     const shareUrl = `${frontendUrl}/access/${token}`;
 
     res.json({
@@ -239,7 +261,8 @@ router.post("/:fileId/share/link", auth, async (req, res) => {
   }
 });
 
-router.get("/access/:token", auth, async (req, res) => {
+// ✅ PUBLIC: GET /api/files/public/access/:token  (no auth)
+router.get("/public/access/:token", async (req, res) => {
   try {
     const token = req.params.token;
 
@@ -265,25 +288,55 @@ router.get("/access/:token", auth, async (req, res) => {
         originalName: file.originalName,
         mimetype: file.mimetype,
         size: file.size,
+        uploadDate: file.uploadDate,
         owner: file.owner,
       },
     });
   } catch (error) {
-    console.error("Access via token error:", error);
+    console.error("Public access via token error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// ✅ PUBLIC: GET /api/files/public/download/:token  (no auth)
+router.get("/public/download/:token", async (req, res) => {
+  try {
+    const token = req.params.token;
+
+    const file = await File.findOne({ "shareLinks.token": token });
+
+    if (!file) {
+      return res.status(404).json({ message: "Link or file not found" });
+    }
+
+    const link = file.shareLinks.find((l) => l.token === token);
+
+    if (!isLinkValid(link)) {
+      return res.status(410).json({ message: "Link has expired" });
+    }
+
+    const filePath = path.join(uploadsDir, file.storedName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Stored file not found" });
+    }
+
+    res.download(filePath, file.originalName);
+  } catch (error) {
+    console.error("Public download via token error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /api/files/download/:id  (protected - owner/shared-with)
 router.get("/download/:id", auth, async (req, res) => {
   try {
-    const tokenFromQuery = req.query.token || null;
     const file = await File.findById(req.params.id);
 
     if (!file) {
       return res.status(404).json({ message: "File not found" });
     }
 
-    if (!canAccessFile(req.user._id, file, tokenFromQuery)) {
+    if (!canAccessFile(req.user._id, file)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
@@ -299,6 +352,7 @@ router.get("/download/:id", auth, async (req, res) => {
   }
 });
 
+// DELETE /api/files/:id
 router.delete("/:id", auth, async (req, res) => {
   try {
     const file = await File.findById(req.params.id);
