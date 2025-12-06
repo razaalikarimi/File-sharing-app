@@ -46,3 +46,29 @@ A user can access a file only if:
 
 ## 🏗 Project Structure
 
+
+file-sharing-app-final/
+│── backend/
+│ ├── src/
+│ │ ├── config/db.js
+│ │ ├── models/User.js
+│ │ ├── models/File.js
+│ │ ├── middleware/auth.js
+│ │ ├── routes/authRoutes.js
+│ │ ├── routes/fileRoutes.js
+│ │ └── server.js
+│ ├── uploads/ (auto created)
+│ ├── .env.example
+│ └── package.json
+│
+└── frontend/
+├── src/
+│ ├── api/axios.js
+│ ├── components/
+│ ├── pages/
+│ └── App.jsx
+├── index.html
+├── index.css
+└── package.json
+
+
