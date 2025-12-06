@@ -72,3 +72,38 @@ file-sharing-app-final/
 └── package.json
 
 
+
+
+## 🏁 Run Locally
+
+### 1️⃣ Project Structure
+
+file-sharing-app-final/
+├─ backend/
+└─ frontend/
+
+yaml
+Copy code
+
+---
+
+### 2️⃣ Start Backend
+
+```bash
+cd file-sharing-app-final/backend
+cp .env.example .env   # Windows users: rename .env.example ➝ .env manually
+npm install
+npm run dev
+Backend runs at → http://localhost:5000
+
+✔ Ensure MongoDB is running locally
+
+3️⃣ Start Frontend
+Open a new terminal:
+
+bash
+Copy code
+cd file-sharing-app-final/frontend
+npm install
+npm run dev
+Frontend runs at → http://localhost:5173
