@@ -43,7 +43,7 @@ const upload = multer({
     },
   }),
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024, // 10 MB
   },
   fileFilter: (req, file, cb) => {
     if (!allowedMimeTypes.includes(file.mimetype)) {
@@ -77,7 +77,7 @@ const canAccessFile = (userId, file, token) => {
     return true;
   }
 
-  // share link via token
+  // share link via token (for protected download if needed)
   if (token) {
     const foundLink = file.shareLinks.find((l) => l.token === token);
     if (isLinkValid(foundLink)) return true;
@@ -156,26 +156,6 @@ router.get("/shared/with-me", auth, async (req, res) => {
   }
 });
 
-// GET /api/files/:id (metadata for owner/shared-with)
-router.get("/:id", auth, async (req, res) => {
-  try {
-    const file = await File.findById(req.params.id);
-
-    if (!file) {
-      return res.status(404).json({ message: "File not found" });
-    }
-
-    if (!canAccessFile(req.user._id, file)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
-    res.json({ file });
-  } catch (error) {
-    console.error("Get file error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 // POST /api/files/:fileId/share/users
 router.post("/:fileId/share/users", auth, async (req, res) => {
   try {
@@ -246,7 +226,6 @@ router.post("/:fileId/share/link", auth, async (req, res) => {
     await file.save();
 
     const frontendUrl = process.env.CLIENT_URL || "http://localhost:5173";
-    // 👇 yahan public route ka URL de rahe hain
     const shareUrl = `${frontendUrl}/access/${token}`;
 
     res.json({
@@ -327,7 +306,7 @@ router.get("/public/download/:token", async (req, res) => {
   }
 });
 
-// GET /api/files/download/:id  (protected - owner/shared-with)
+// GET /api/files/download/:id  (protected)
 router.get("/download/:id", auth, async (req, res) => {
   try {
     const file = await File.findById(req.params.id);
@@ -348,6 +327,26 @@ router.get("/download/:id", auth, async (req, res) => {
     res.download(filePath, file.originalName);
   } catch (error) {
     console.error("Download error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /api/files/:id  (metadata – protected)
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({ message: "File not found" });
+    }
+
+    if (!canAccessFile(req.user._id, file)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    res.json({ file });
+  } catch (error) {
+    console.error("Get file error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
