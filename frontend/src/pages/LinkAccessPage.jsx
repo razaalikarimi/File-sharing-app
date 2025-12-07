@@ -1,4 +1,4 @@
-// frontend/src/pages/LinkAccessPage.jsx
+
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/axios";
@@ -12,7 +12,7 @@ const LinkAccessPage = () => {
   useEffect(() => {
     const checkLink = async () => {
       try {
-        // ✅ public metadata endpoint
+       
         const res = await api.get(`/files/public/access/${token}`);
         setFileInfo(res.data.file);
       } catch (err) {
@@ -28,7 +28,7 @@ const LinkAccessPage = () => {
     if (!fileInfo) return;
     try {
       setDownloading(true);
-      // ✅ public download endpoint
+      
       const res = await api.get(`/files/public/download/${token}`, {
         responseType: "blob",
       });
